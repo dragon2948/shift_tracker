@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shift Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg:       #0f0f0f;
+    --surface:  #181818;
+    --border:   #2a2a2a;
+    --muted:    #444;
+    --text:     #e8e8e8;
+    --subtext:  #888;
+    --accent:   #c8f542;
+    --acoustics-bg: #1a2a1a; --acoustics-text: #7ecb7e;
+    --pod-bg:   #1a1f2e; --pod-text: #7eaaeb;
+    --innohub-bg: #2a1f1a; --innohub-text: #e0a060;
+    --danger:   #e05555;
+    --radius:   8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Layout ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .header-left h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--text);
+  }
+
+  .header-left p {
+    font-size: 12px;
+    color: var(--subtext);
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .main { padding: 28px 32px; max-width: 1100px; margin: 0 auto; }
+
+  /* ── Metrics ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .metric-value.plain { color: var(--text); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--subtext);
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+  }
+
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--subtext);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+
+  tbody tr:hover { background: var(--surface); }
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 10px 12px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  td.muted { color: var(--subtext); font-size: 12px; }
+
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .tag-acoustics { background: var(--acoustics-bg); color: var(--acoustics-text); }
+  .tag-pod       { background: var(--pod-bg);       color: var(--pod-text); }
+  .tag-innohub   { background: var(--innohub-bg);   color: var(--innohub-text); }
+
+  /* ── Panel (summary tabs) ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* ── Add form ── */
+  .add-btn {
+    padding: 8px 16px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+
+  .add-btn:hover { opacity: .85; }
+
+  .form-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .form-panel.open { display: block; }
+
+  .form-panel h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    color: var(--text);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .form-field label {
+    display: block;
+    font-size: 11px;
+    color: var(--subtext);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .form-field input,
+  .form-field select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--muted);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color .15s;
+  }
+
+  .form-field input:focus,
+  .form-field select:focus { border-color: var(--accent); }
+
+  .form-field select option { background: var(--surface); }
+
+  .form-preview {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    margin: 8px 0 12px;
+    min-height: 18px;
+  }
+
+  .form-err { font-size: 12px; color: var(--danger); margin-bottom: 10px; }
+
+  .form-actions { display: flex; gap: 8px; }
+
+  .btn-save {
+    padding: 8px 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-cancel {
+    padding: 8px 18px;
+    background: none;
+    color: var(--subtext);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* ── Delete button ── */
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color .15s;
+  }
+
+  .del-btn:hover { color: var(--danger); }
+
+  .del-confirm { display: flex; gap: 8px; align-items: center; }
+  .del-yes { font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; font-weight: 600; }
+  .del-no  { font-size: 11px; color: var(--subtext); background: none; border: none; cursor: pointer; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--accent);
+    color: #000;
+    padding: 9px 22px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Summary tables ── */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .summary-table th {
+    text-align: left; padding: 10px 16px;
+    font-size: 11px; font-weight: 500;
+    color: var(--subtext); text-transform: uppercase;
+    letter-spacing: .07em; border-bottom: 1px solid var(--border);
+  }
+  .summary-table td { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table .total td { color: var(--accent); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .summary-table td.mono { font-family: 'JetBrains Mono', monospace; }
+  .summary-table td.right { text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    .header { padding: 16px 16px; }
+    .main { padding: 16px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .form-grid { grid-template-columns: 1fr 1fr; }
+    .metric-value { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Shift Tracker</h1>
+    <p>$15.00 / hr &nbsp;·&nbsp; 2026</p>
+  </div>
+  <button class="add-btn" onclick="toggleForm()">+ Add shift</button>
+</div>
+
+<div class="main">
+
+  <!-- Add Form -->
+  <div class="form-panel" id="formPanel">
+    <h3>New shift</h3>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>Date</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="form-field">
+        <label>Start</label>
+        <input type="time" id="fStart">
+      </div>
+      <div class="form-field">
+        <label>End</label>
+        <input type="time" id="fEnd">
+      </div>
+      <div class="form-field">
+        <label>Job</label>
+        <select id="fJob">
+          <option>Acoustics Project</option>
+          <option>POD</option>
+          <option>Innohub</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Break (mins)</label>
+        <input type="number" id="fBreak" min="0" value="0" placeholder="0">
+      </div>
+      <div class="form-field">
+        <label>Note (optional)</label>
+        <input type="text" id="fNote" placeholder="e.g. excl. lunch">
+      </div>
+    </div>
+    <div class="form-preview" id="formPreview"></div>
+    <div class="form-err" id="formErr"></div>
+    <div class="form-actions">
+      <button class="btn-save" onclick="saveShift()">Save shift</button>
+      <button class="btn-cancel" onclick="toggleForm()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics" id="metrics"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('shifts', this)">Shifts</button>
+    <button class="tab" onclick="switchTab('weekly', this)">Weekly</button>
+    <button class="tab" onclick="switchTab('monthly', this)">Monthly</button>
+  </div>
+
+  <!-- Shifts tab -->
+  <div id="tab-shifts">
+    <div class="panel">
+      <div class="table-wrap">
+        <table id="shiftsTable">
+          <thead>
+            <tr>
+              <th>Date</th><th>Start</th><th>End</th>
+              <th>Hours</th><th>Pay</th><th>Job</th>
+              <th>Week</th><th>Note</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="shiftsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly tab -->
+  <div id="tab-weekly" style="display:none">
+    <div class="panel">
+      <table class="summary-table" id="weeklyTable">
+        <thead><tr><th>Week</th><th>Dates</th><th>Hours</th><th style="text-align:right">Pay</th></tr></thead>
+        <tbody id="weeklyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Monthly tab -->
+  <div id="tab-monthly" style="display:none">
+    <div class="panel">
+      <table class="summary-table" id="monthlyTable">
+        <thead><tr><th>Month</th><th>Hours</th><th style="text-align:right">Pay</th></tr></thead>
+        <tbody id="monthlyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const RATE = 15;
+const STORAGE_KEY = "wurk_shifts";
+const MONTH_NAMES = {"04":"April","05":"May","06":"June","07":"July","08":"August","09":"September","10":"October","11":"November","12":"December"};
+
+const SEED = [
+  {id:1,  date:"2026-04-21",start:"15:00",end:"18:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:2,  date:"2026-04-23",start:"14:00",end:"16:30",job:"Acoustics Project",breakMins:0,note:""},
+  {id:3,  date:"2026-04-27",start:"14:00",end:"15:30",job:"Acoustics Project",breakMins:0,note:""},
+  {id:4,  date:"2026-05-06",start:"10:00",end:"11:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:5,  date:"2026-05-12",start:"15:00",end:"18:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:6,  date:"2026-05-13",start:"11:00",end:"13:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:7,  date:"2026-05-13",start:"14:30",end:"18:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:8,  date:"2026-05-19",start:"14:30",end:"17:00",job:"POD",breakMins:0,note:""},
+  {id:9,  date:"2026-05-22",start:"09:45",end:"14:45",job:"POD",breakMins:0,note:""},
+  {id:10, date:"2026-05-25",start:"10:30",end:"12:30",job:"POD",breakMins:0,note:""},
+  {id:11, date:"2026-05-29",start:"09:30",end:"13:00",job:"Innohub",breakMins:0,note:""},
+  {id:12, date:"2026-06-05",start:"10:30",end:"13:00",job:"Innohub",breakMins:0,note:""},
+  {id:13, date:"2026-06-08",start:"09:30",end:"18:00",job:"Innohub",breakMins:60,note:"excl. 12:30–13:30 lunch"},
+  {id:14, date:"2026-06-15",start:"10:00",end:"11:30",job:"Acoustics Project",breakMins:0,note:""},
+  {id:15, date:"2026-06-15",start:"15:00",end:"17:30",job:"POD",breakMins:0,note:""},
+  {id:16, date:"2026-06-16",start:"11:00",end:"13:00",job:"Acoustics Project",breakMins:0,note:""},
+  {id:17, date:"2026-06-16",start:"14:30",end:"18:00",job:"Innohub",breakMins:0,note:""},
+  {id:18, date:"2026-06-17",start:"10:00",end:"12:00",job:"POD",breakMins:0,note:""},
+  {id:19, date:"2026-06-17",start:"14:00",end:"15:30",job:"Acoustics Project",breakMins:0,note:""},
+  {id:20, date:"2026-06-17",start:"16:30",end:"18:00",job:"POD",breakMins:0,note:""},
+];
+
+function toMins(t){ const[h,m]=t.split(":").map(Number); return h*60+m; }
+function calcHrs(s,e,b=0){ return (toMins(e)-toMins(s)-b)/60; }
+function fmt(n){ const r=Math.round(n*100)/100; return r%1===0?String(r):r.toFixed(2); }
+function fmtPay(n){ return "$"+(Math.round(n*100)/100).toFixed(2); }
+function displayDate(iso){ const[y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+
+function isoWeek(dateStr){
+  const[y,m,d]=dateStr.split("-").map(Number);
+  const date=new Date(Date.UTC(y,m-1,d));
+  const day=date.getUTCDay()||7;
+  date.setUTCDate(date.getUTCDate()+4-day);
+  const ys=new Date(Date.UTC(date.getUTCFullYear(),0,1));
+  return Math.ceil((((date-ys)/86400000)+1)/7);
+}
+
+function tagClass(job){
+  if(job==="Acoustics Project") return "tag-acoustics";
+  if(job==="POD") return "tag-pod";
+  return "tag-innohub";
+}
+
+// Storage
+function loadShifts(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const data=JSON.parse(raw);
+      // If stored has fewer than seed, merge in any missing seed ids
+      const storedIds=new Set(data.map(s=>s.id));
+      const missing=SEED.filter(s=>!storedIds.has(s.id));
+      return [...data,...missing].sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+    }
+  }catch(e){}
+  return [...SEED];
+}
+
+function saveShifts(shifts){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(shifts));
+}
+
+let shifts=loadShifts();
+let delTarget=null;
+
+function render(){
+  saveShifts(shifts);
+  renderMetrics();
+  renderShiftsTable();
+  renderWeekly();
+  renderMonthly();
+  updateFormPreview();
+}
+
+function renderMetrics(){
+  const totalHrs=shifts.reduce((a,s)=>a+calcHrs(s.start,s.end,s.breakMins||0),0);
+  const totalPay=totalHrs*RATE;
+  const curMonth=new Date().toISOString().slice(5,7);
+  const monthPay=shifts.filter(s=>s.date.slice(5,7)===curMonth).reduce((a,s)=>a+calcHrs(s.start,s.end,s.breakMins||0)*RATE,0);
+  document.getElementById("metrics").innerHTML=`
+    <div class="metric"><div class="metric-label">Total shifts</div><div class="metric-value plain">${shifts.length}</div></div>
+    <div class="metric"><div class="metric-label">Total hours</div><div class="metric-value plain">${fmt(totalHrs)}</div></div>
+    <div class="metric"><div class="metric-label">Total pay</div><div class="metric-value">${fmtPay(totalPay)}</div></div>
+    <div class="metric"><div class="metric-label">This month</div><div class="metric-value">${fmtPay(monthPay)}</div></div>
+  `;
+}
+
+function renderShiftsTable(){
+  const tbody=document.getElementById("shiftsBody");
+  tbody.innerHTML="";
+  shifts.forEach(s=>{
+    const h=calcHrs(s.start,s.end,s.breakMins||0);
+    const wk=isoWeek(s.date);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${displayDate(s.date)}</td>
+      <td class="mono">${s.start}</td>
+      <td class="mono">${s.end}</td>
+      <td class="mono">${fmt(h)}</td>
+      <td class="mono">${fmtPay(h*RATE)}</td>
+      <td><span class="tag ${tagClass(s.job)}">${s.job}</span></td>
+      <td class="muted">${wk}</td>
+      <td class="muted">${s.note||""}</td>
+      <td id="del-${s.id}">
+        <button class="del-btn" onclick="confirmDelete(${s.id})">✕</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function confirmDelete(id){
+  if(delTarget===id){
+    // second click = cancel
+    delTarget=null;
+    renderShiftsTable();
+    return;
+  }
+  delTarget=id;
+  const cell=document.getElementById(`del-${id}`);
+  if(cell){
+    cell.innerHTML=`<span class="del-confirm">
+      <button class="del-yes" onclick="doDelete(${id})">Delete</button>
+      <button class="del-no" onclick="cancelDelete()">Cancel</button>
+    </span>`;
+  }
+}
+
+function cancelDelete(){ delTarget=null; renderShiftsTable(); }
+
+function doDelete(id){
+  shifts=shifts.filter(s=>s.id!==id);
+  delTarget=null;
+  render();
+  showToast("Shift deleted");
+}
+
+function renderWeekly(){
+  const byWeek={};
+  shifts.forEach(s=>{
+    const wk=isoWeek(s.date);
+    const h=calcHrs(s.start,s.end,s.breakMins||0);
+    if(!byWeek[wk]) byWeek[wk]={h:0,pay:0,dates:[]};
+    byWeek[wk].h+=h; byWeek[wk].pay+=h*RATE;
+    byWeek[wk].dates.push(s.date);
+  });
+  const tbody=document.getElementById("weeklyBody");
+  tbody.innerHTML="";
+  Object.keys(byWeek).sort((a,b)=>+a-+b).forEach(wk=>{
+    const{h,pay,dates}=byWeek[wk];
+    const sorted=[...new Set(dates)].sort();
+    const label=sorted.length>1?`${displayDate(sorted[0])} – ${displayDate(sorted[sorted.length-1])}`:displayDate(sorted[0]);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><strong>Wk ${wk}</strong></td><td class="muted">${label}</td><td class="mono">${fmt(h)}</td><td class="right">${fmtPay(pay)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMonthly(){
+  const byMonth={};
+  shifts.forEach(s=>{
+    const m=s.date.slice(5,7);
+    const h=calcHrs(s.start,s.end,s.breakMins||0);
+    if(!byMonth[m]) byMonth[m]={h:0,pay:0};
+    byMonth[m].h+=h; byMonth[m].pay+=h*RATE;
+  });
+  const tbody=document.getElementById("monthlyBody");
+  tbody.innerHTML="";
+  let totalH=0,totalP=0;
+  Object.keys(byMonth).sort().forEach(m=>{
+    const{h,pay}=byMonth[m];
+    totalH+=h; totalP+=pay;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${MONTH_NAMES[m]||m} 2026</td><td class="mono">${fmt(h)}</td><td class="right">${fmtPay(pay)}</td>`;
+    tbody.appendChild(tr);
+  });
+  const tot=document.createElement("tr");
+  tot.className="total";
+  tot.innerHTML=`<td>Total</td><td>${fmt(totalH)}</td><td style="text-align:right">${fmtPay(totalP)}</td>`;
+  tbody.appendChild(tot);
+}
+
+// Tabs
+function switchTab(name, btn){
+  ["shifts","weekly","monthly"].forEach(t=>{
+    document.getElementById(`tab-${t}`).style.display = t===name?"block":"none";
+  });
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+// Form
+function toggleForm(){
+  const p=document.getElementById("formPanel");
+  p.classList.toggle("open");
+  document.getElementById("formErr").textContent="";
+  document.getElementById("formPreview").textContent="";
+}
+
+function updateFormPreview(){
+  const s=document.getElementById("fStart").value;
+  const e=document.getElementById("fEnd").value;
+  const b=parseInt(document.getElementById("fBreak").value)||0;
+  const preview=document.getElementById("formPreview");
+  if(s&&e&&toMins(e)>toMins(s)){
+    const h=calcHrs(s,e,b);
+    preview.textContent=`→ ${fmt(h)} hrs · ${fmtPay(h*RATE)}`;
+  } else {
+    preview.textContent="";
+  }
+}
+
+["fStart","fEnd","fBreak"].forEach(id=>{
+  document.getElementById(id).addEventListener("input",updateFormPreview);
+});
+
+function saveShift(){
+  const date=document.getElementById("fDate").value;
+  const start=document.getElementById("fStart").value;
+  const end=document.getElementById("fEnd").value;
+  const job=document.getElementById("fJob").value;
+  const breakMins=parseInt(document.getElementById("fBreak").value)||0;
+  const note=document.getElementById("fNote").value.trim();
+  const err=document.getElementById("formErr");
+
+  if(!date||!start||!end){ err.textContent="Please fill in date, start and end time."; return; }
+  if(toMins(end)<=toMins(start)){ err.textContent="End time must be after start time."; return; }
+  if(calcHrs(start,end,breakMins)<=0){ err.textContent="Hours after break must be greater than 0."; return; }
+
+  err.textContent="";
+  shifts.push({id:Date.now(),date,start,end,job,breakMins,note});
+  shifts.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+
+  // Reset form
+  ["fDate","fStart","fEnd","fNote"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("fBreak").value="0";
+  document.getElementById("fJob").value="Acoustics Project";
+  document.getElementById("formPreview").textContent="";
+  document.getElementById("formPanel").classList.remove("open");
+
+  render();
+  showToast("Shift saved!");
+}
+
+// Toast
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+// Init
+render();
+</script>
+</body>
+</html>
