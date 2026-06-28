@@ -244,6 +244,9 @@
 
   .form-field select option { background: var(--surface); }
 
+  .date-select-group { display: flex; gap: 6px; }
+  .date-select-group select { flex: 1; min-width: 0; }
+
   .form-preview {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
@@ -368,7 +371,11 @@
     <div class="form-grid">
       <div class="form-field">
         <label>Date</label>
-        <input type="date" id="fDate">
+        <div class="date-select-group">
+          <select id="fDateDay"></select>
+          <select id="fDateMonth"></select>
+          <select id="fDateYear"></select>
+        </div>
       </div>
       <div class="form-field">
         <label>Start</label>
@@ -551,6 +558,42 @@ function populateTimeSelects(){
   document.getElementById("fBreakEnd").innerHTML=timeOptionsHTML(true);
 }
 
+const MONTH_LABELS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+function populateDateSelects(){
+  document.getElementById("fDateDay").innerHTML=Array.from({length:31},(_,i)=>{
+    const d=String(i+1).padStart(2,"0");
+    return `<option value="${d}">${d}</option>`;
+  }).join("");
+
+  document.getElementById("fDateMonth").innerHTML=MONTH_LABELS.map((name,i)=>{
+    const m=String(i+1).padStart(2,"0");
+    return `<option value="${m}">${name}</option>`;
+  }).join("");
+
+  const curYear=new Date().getFullYear();
+  document.getElementById("fDateYear").innerHTML=[curYear-1,curYear,curYear+1].map(y=>`<option value="${y}">${y}</option>`).join("");
+}
+
+function getFormDate(){
+  const d=document.getElementById("fDateDay").value;
+  const m=document.getElementById("fDateMonth").value;
+  const y=document.getElementById("fDateYear").value;
+  return `${y}-${m}-${d}`;
+}
+
+function setFormDate(iso){
+  const[y,m,d]=iso.split("-");
+  document.getElementById("fDateDay").value=d;
+  document.getElementById("fDateMonth").value=m;
+  document.getElementById("fDateYear").value=y;
+}
+
+function isValidDate(y,m,d){
+  const dt=new Date(Date.UTC(+y,+m-1,+d));
+  return dt.getUTCFullYear()===+y && (dt.getUTCMonth()+1)===+m && dt.getUTCDate()===+d;
+}
+
 function render(){
   saveShifts(shifts);
   renderMetrics();
@@ -691,7 +734,7 @@ function closeForm(){
 
 function resetForm(){
   editingId=null;
-  document.getElementById("fDate").value="";
+  setFormDate(new Date().toISOString().slice(0,10));
   document.getElementById("fStart").value="";
   document.getElementById("fEnd").value="";
   document.getElementById("fBreakStart").value="";
@@ -709,7 +752,7 @@ function startEdit(id){
   const s=shifts.find(x=>x.id===id);
   if(!s) return;
   editingId=id;
-  document.getElementById("fDate").value=s.date;
+  setFormDate(s.date);
   document.getElementById("fStart").value=s.start;
   document.getElementById("fEnd").value=s.end;
   document.getElementById("fJob").value=s.job;
@@ -745,7 +788,7 @@ function updateFormPreview(){
 });
 
 function saveShift(){
-  const date=document.getElementById("fDate").value;
+  const date=getFormDate();
   const start=document.getElementById("fStart").value;
   const end=document.getElementById("fEnd").value;
   const job=document.getElementById("fJob").value;
@@ -754,7 +797,9 @@ function saveShift(){
   const note=document.getElementById("fNote").value.trim();
   const err=document.getElementById("formErr");
 
-  if(!date||!start||!end){ err.textContent="Please fill in date, start and end time."; return; }
+  const[dy,dm,dd]=date.split("-");
+  if(!isValidDate(dy,dm,dd)){ err.textContent="Please select a valid date."; return; }
+  if(!start||!end){ err.textContent="Please select start and end time."; return; }
   if(toMins(end)<=toMins(start)){ err.textContent="End time must be after start time."; return; }
   if((breakStart&&!breakEnd)||(!breakStart&&breakEnd)){ err.textContent="Select both break start and end, or leave both blank."; return; }
   if(breakStart&&breakEnd){
@@ -792,6 +837,7 @@ function showToast(msg){
 
 // Init
 populateTimeSelects();
+populateDateSelects();
 render();
 </script>
 </body>
