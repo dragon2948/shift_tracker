@@ -211,7 +211,7 @@
 
   .form-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -290,6 +290,18 @@
 
   .del-btn:hover { color: var(--danger); }
 
+  .edit-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0 4px;
+    transition: color .15s;
+  }
+
+  .edit-btn:hover { color: var(--accent); }
+
   .del-confirm { display: flex; gap: 8px; align-items: center; }
   .del-yes { font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; font-weight: 600; }
   .del-no  { font-size: 11px; color: var(--subtext); background: none; border: none; cursor: pointer; }
@@ -345,14 +357,14 @@
     <h1>Shift Tracker</h1>
     <p>$15.00 / hr &nbsp;·&nbsp; 2026</p>
   </div>
-  <button class="add-btn" onclick="toggleForm()">+ Add shift</button>
+  <button class="add-btn" onclick="openAddForm()">+ Add shift</button>
 </div>
 
 <div class="main">
 
   <!-- Add Form -->
   <div class="form-panel" id="formPanel">
-    <h3>New shift</h3>
+    <h3 id="formTitle">New shift</h3>
     <div class="form-grid">
       <div class="form-field">
         <label>Date</label>
@@ -360,11 +372,11 @@
       </div>
       <div class="form-field">
         <label>Start</label>
-        <input type="time" id="fStart">
+        <select id="fStart"></select>
       </div>
       <div class="form-field">
         <label>End</label>
-        <input type="time" id="fEnd">
+        <select id="fEnd"></select>
       </div>
       <div class="form-field">
         <label>Job</label>
@@ -375,8 +387,12 @@
         </select>
       </div>
       <div class="form-field">
-        <label>Break (mins)</label>
-        <input type="number" id="fBreak" min="0" value="0" placeholder="0">
+        <label>Break start</label>
+        <select id="fBreakStart"></select>
+      </div>
+      <div class="form-field">
+        <label>Break end</label>
+        <select id="fBreakEnd"></select>
       </div>
       <div class="form-field">
         <label>Note (optional)</label>
@@ -386,8 +402,8 @@
     <div class="form-preview" id="formPreview"></div>
     <div class="form-err" id="formErr"></div>
     <div class="form-actions">
-      <button class="btn-save" onclick="saveShift()">Save shift</button>
-      <button class="btn-cancel" onclick="toggleForm()">Cancel</button>
+      <button class="btn-save" id="formSaveBtn" onclick="saveShift()">Save shift</button>
+      <button class="btn-cancel" onclick="closeForm()">Cancel</button>
     </div>
   </div>
 
@@ -408,7 +424,7 @@
         <table id="shiftsTable">
           <thead>
             <tr>
-              <th>Date</th><th>Start</th><th>End</th>
+              <th>Date</th><th>Start</th><th>End</th><th>Break</th>
               <th>Hours</th><th>Pay</th><th>Job</th>
               <th>Week</th><th>Note</th><th></th>
             </tr>
@@ -461,7 +477,7 @@ const SEED = [
   {id:10, date:"2026-05-25",start:"10:30",end:"12:30",job:"POD",breakMins:0,note:""},
   {id:11, date:"2026-05-29",start:"09:30",end:"13:00",job:"Innohub",breakMins:0,note:""},
   {id:12, date:"2026-06-05",start:"10:30",end:"13:00",job:"Innohub",breakMins:0,note:""},
-  {id:13, date:"2026-06-08",start:"09:30",end:"18:00",job:"Innohub",breakMins:60,note:"excl. 12:30–13:30 lunch"},
+  {id:13, date:"2026-06-08",start:"09:30",end:"18:00",job:"Innohub",breakMins:60,breakStart:"12:30",breakEnd:"13:30",note:"excl. 12:30–13:30 lunch"},
   {id:14, date:"2026-06-15",start:"10:00",end:"11:30",job:"Acoustics Project",breakMins:0,note:""},
   {id:15, date:"2026-06-15",start:"15:00",end:"17:30",job:"POD",breakMins:0,note:""},
   {id:16, date:"2026-06-16",start:"11:00",end:"13:00",job:"Acoustics Project",breakMins:0,note:""},
@@ -513,6 +529,27 @@ function saveShifts(shifts){
 
 let shifts=loadShifts();
 let delTarget=null;
+let editingId=null;
+
+// 15-minute time slots for the start/end/break dropdowns
+const TIME_SLOTS=[];
+for(let h=0;h<24;h++){
+  for(let m=0;m<60;m+=15){
+    TIME_SLOTS.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+  }
+}
+
+function timeOptionsHTML(includeEmpty){
+  const empty=includeEmpty?`<option value="">— none —</option>`:"";
+  return empty+TIME_SLOTS.map(t=>`<option value="${t}">${t}</option>`).join("");
+}
+
+function populateTimeSelects(){
+  document.getElementById("fStart").innerHTML=timeOptionsHTML(false);
+  document.getElementById("fEnd").innerHTML=timeOptionsHTML(false);
+  document.getElementById("fBreakStart").innerHTML=timeOptionsHTML(true);
+  document.getElementById("fBreakEnd").innerHTML=timeOptionsHTML(true);
+}
 
 function render(){
   saveShifts(shifts);
@@ -547,12 +584,14 @@ function renderShiftsTable(){
       <td>${displayDate(s.date)}</td>
       <td class="mono">${s.start}</td>
       <td class="mono">${s.end}</td>
+      <td class="muted">${s.breakStart&&s.breakEnd?`${s.breakStart}–${s.breakEnd}`:"—"}</td>
       <td class="mono">${fmt(h)}</td>
       <td class="mono">${fmtPay(h*RATE)}</td>
       <td><span class="tag ${tagClass(s.job)}">${s.job}</span></td>
       <td class="muted">${wk}</td>
       <td class="muted">${s.note||""}</td>
       <td id="del-${s.id}">
+        <button class="edit-btn" onclick="startEdit(${s.id})">✎</button>
         <button class="del-btn" onclick="confirmDelete(${s.id})">✕</button>
       </td>
     `;
@@ -641,28 +680,68 @@ function switchTab(name, btn){
 }
 
 // Form
-function toggleForm(){
-  const p=document.getElementById("formPanel");
-  p.classList.toggle("open");
-  document.getElementById("formErr").textContent="";
+function openAddForm(){
+  resetForm();
+  document.getElementById("formPanel").classList.add("open");
+}
+
+function closeForm(){
+  resetForm();
+}
+
+function resetForm(){
+  editingId=null;
+  document.getElementById("fDate").value="";
+  document.getElementById("fStart").value="";
+  document.getElementById("fEnd").value="";
+  document.getElementById("fBreakStart").value="";
+  document.getElementById("fBreakEnd").value="";
+  document.getElementById("fNote").value="";
+  document.getElementById("fJob").value="Acoustics Project";
   document.getElementById("formPreview").textContent="";
+  document.getElementById("formErr").textContent="";
+  document.getElementById("formTitle").textContent="New shift";
+  document.getElementById("formSaveBtn").textContent="Save shift";
+  document.getElementById("formPanel").classList.remove("open");
+}
+
+function startEdit(id){
+  const s=shifts.find(x=>x.id===id);
+  if(!s) return;
+  editingId=id;
+  document.getElementById("fDate").value=s.date;
+  document.getElementById("fStart").value=s.start;
+  document.getElementById("fEnd").value=s.end;
+  document.getElementById("fJob").value=s.job;
+  document.getElementById("fBreakStart").value=s.breakStart||"";
+  document.getElementById("fBreakEnd").value=s.breakEnd||"";
+  document.getElementById("fNote").value=s.note||"";
+  document.getElementById("formErr").textContent="";
+  document.getElementById("formTitle").textContent="Edit shift";
+  document.getElementById("formSaveBtn").textContent="Update shift";
+  document.getElementById("formPanel").classList.add("open");
+  updateFormPreview();
+  document.getElementById("formPanel").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 function updateFormPreview(){
   const s=document.getElementById("fStart").value;
   const e=document.getElementById("fEnd").value;
-  const b=parseInt(document.getElementById("fBreak").value)||0;
+  const bs=document.getElementById("fBreakStart").value;
+  const be=document.getElementById("fBreakEnd").value;
   const preview=document.getElementById("formPreview");
+  const b=(bs&&be&&toMins(be)>toMins(bs))?(toMins(be)-toMins(bs)):0;
   if(s&&e&&toMins(e)>toMins(s)){
     const h=calcHrs(s,e,b);
-    preview.textContent=`→ ${fmt(h)} hrs · ${fmtPay(h*RATE)}`;
+    const breakTxt=b>0?` · break ${bs}–${be}`:"";
+    preview.textContent=`→ ${fmt(h)} hrs · ${fmtPay(h*RATE)}${breakTxt}`;
   } else {
     preview.textContent="";
   }
 }
 
-["fStart","fEnd","fBreak"].forEach(id=>{
-  document.getElementById(id).addEventListener("input",updateFormPreview);
+["fStart","fEnd","fBreakStart","fBreakEnd"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",updateFormPreview);
 });
 
 function saveShift(){
@@ -670,27 +749,37 @@ function saveShift(){
   const start=document.getElementById("fStart").value;
   const end=document.getElementById("fEnd").value;
   const job=document.getElementById("fJob").value;
-  const breakMins=parseInt(document.getElementById("fBreak").value)||0;
+  const breakStart=document.getElementById("fBreakStart").value;
+  const breakEnd=document.getElementById("fBreakEnd").value;
   const note=document.getElementById("fNote").value.trim();
   const err=document.getElementById("formErr");
 
   if(!date||!start||!end){ err.textContent="Please fill in date, start and end time."; return; }
   if(toMins(end)<=toMins(start)){ err.textContent="End time must be after start time."; return; }
+  if((breakStart&&!breakEnd)||(!breakStart&&breakEnd)){ err.textContent="Select both break start and end, or leave both blank."; return; }
+  if(breakStart&&breakEnd){
+    if(toMins(breakEnd)<=toMins(breakStart)){ err.textContent="Break end must be after break start."; return; }
+    if(toMins(breakStart)<toMins(start)||toMins(breakEnd)>toMins(end)){ err.textContent="Break must fall within the shift's start and end time."; return; }
+  }
+  const breakMins=(breakStart&&breakEnd)?(toMins(breakEnd)-toMins(breakStart)):0;
   if(calcHrs(start,end,breakMins)<=0){ err.textContent="Hours after break must be greater than 0."; return; }
 
   err.textContent="";
-  shifts.push({id:Date.now(),date,start,end,job,breakMins,note});
+
+  if(editingId!==null){
+    const idx=shifts.findIndex(s=>s.id===editingId);
+    if(idx!==-1){
+      shifts[idx]={...shifts[idx],date,start,end,job,breakMins,breakStart:breakStart||"",breakEnd:breakEnd||"",note};
+    }
+  } else {
+    shifts.push({id:Date.now(),date,start,end,job,breakMins,breakStart:breakStart||"",breakEnd:breakEnd||"",note});
+  }
   shifts.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
 
-  // Reset form
-  ["fDate","fStart","fEnd","fNote"].forEach(id=>document.getElementById(id).value="");
-  document.getElementById("fBreak").value="0";
-  document.getElementById("fJob").value="Acoustics Project";
-  document.getElementById("formPreview").textContent="";
-  document.getElementById("formPanel").classList.remove("open");
-
+  const wasEditing=editingId!==null;
+  resetForm();
   render();
-  showToast("Shift saved!");
+  showToast(wasEditing?"Shift updated!":"Shift saved!");
 }
 
 // Toast
@@ -702,6 +791,7 @@ function showToast(msg){
 }
 
 // Init
+populateTimeSelects();
 render();
 </script>
 </body>
