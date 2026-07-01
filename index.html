@@ -129,7 +129,7 @@
 
   thead th {
     text-align: left;
-    padding: 10px 12px;
+    padding: 10px 14px;
     font-size: 11px;
     font-weight: 500;
     color: var(--subtext);
@@ -146,21 +146,26 @@
 
   tbody tr:hover { background: var(--surface); }
   tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+  tbody tr:nth-child(even):hover { background: var(--surface); }
 
   td {
-    padding: 10px 12px;
+    padding: 11px 14px;
     color: var(--text);
     white-space: nowrap;
   }
 
   td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
   td.muted { color: var(--subtext); font-size: 12px; }
+  td.td-date { font-weight: 500; font-size: 13px; }
+  td.td-hours { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); }
+  td.td-pay { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 600; }
 
   .tag {
     display: inline-block;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
-    padding: 2px 8px;
+    padding: 3px 10px;
     border-radius: 4px;
   }
 
@@ -498,7 +503,14 @@ function toMins(t){ const[h,m]=t.split(":").map(Number); return h*60+m; }
 function calcHrs(s,e,b=0){ return (toMins(e)-toMins(s)-b)/60; }
 function fmt(n){ const r=Math.round(n*100)/100; return r%1===0?String(r):r.toFixed(2); }
 function fmtPay(n){ return "$"+(Math.round(n*100)/100).toFixed(2); }
-function displayDate(iso){ const[y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
+function displayDate(iso){
+  const[y,m,d]=iso.split("-");
+  const dt=new Date(Date.UTC(+y,+m-1,+d));
+  const wd=dt.toLocaleDateString("en-GB",{weekday:"short",timeZone:"UTC"});
+  const dom=+d;
+  const mon=dt.toLocaleDateString("en-GB",{month:"short",timeZone:"UTC"});
+  return `${wd} ${dom} ${mon}`;
+}
 
 function isoWeek(dateStr){
   const[y,m,d]=dateStr.split("-").map(Number);
@@ -519,13 +531,7 @@ function tagClass(job){
 function loadShifts(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const data=JSON.parse(raw);
-      // If stored has fewer than seed, merge in any missing seed ids
-      const storedIds=new Set(data.map(s=>s.id));
-      const missing=SEED.filter(s=>!storedIds.has(s.id));
-      return [...data,...missing].sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
-    }
+    if(raw) return JSON.parse(raw).sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
   }catch(e){}
   return [...SEED];
 }
@@ -624,12 +630,12 @@ function renderShiftsTable(){
     const wk=isoWeek(s.date);
     const tr=document.createElement("tr");
     tr.innerHTML=`
-      <td>${displayDate(s.date)}</td>
+      <td class="td-date">${displayDate(s.date)}</td>
       <td class="mono">${s.start}</td>
       <td class="mono">${s.end}</td>
       <td class="muted">${s.breakStart&&s.breakEnd?`${s.breakStart}–${s.breakEnd}`:"—"}</td>
-      <td class="mono">${fmt(h)}</td>
-      <td class="mono">${fmtPay(h*RATE)}</td>
+      <td class="td-hours">${fmt(h)}</td>
+      <td class="td-pay">${fmtPay(h*RATE)}</td>
       <td><span class="tag ${tagClass(s.job)}">${s.job}</span></td>
       <td class="muted">${wk}</td>
       <td class="muted">${s.note||""}</td>
